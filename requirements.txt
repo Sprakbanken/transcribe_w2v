@@ -5,3 +5,4 @@ inaSpeechSegmenter
 pympi-ling
 srt
 speechbrain
+https://github.com/kpu/kenlm/archive/master.zip

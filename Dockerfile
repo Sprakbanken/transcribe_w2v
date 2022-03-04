@@ -19,7 +19,7 @@ COPY --chown=$username:$username requirements.txt requirements.txt
 
 RUN pip install --user -r requirements.txt
 
-#ENV PATH="/home/$username/.local/bin:${PATH}"
+ENV PATH="/home/$username/.local/bin:${PATH}"
 
 COPY --chown=$username:$username . .
 
