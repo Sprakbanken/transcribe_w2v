@@ -1,0 +1,7 @@
+pandas
+librosa
+https://github.com/pyannote/pyannote-audio/archive/develop.zip
+inaSpeechSegmenter
+pympi-ling
+srt
+speechbrain
