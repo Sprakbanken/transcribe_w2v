@@ -50,7 +50,7 @@ def transcribe_series(filename_series, transcriptionfunc, path_to_audio):
 
 # Transcribe with wav2wec
 def wav2vec_transcribe(
-    filepath, processor, model, offset=0, duration=None, print_output=False
+    filepath, processor, model, offset, duration, limit=30, print_output=False
 ):
     """Transcribe an audiofile or segment of an audio file with wav2vec.
 
@@ -62,26 +62,33 @@ def wav2vec_transcribe(
         a wav2vec processor, e.g. Wav2Vec2ProcessorWithLM.from_pretrained('NbAiLab/nb-wav2vec2-1b-bokmaal')
     model
         a wav2vec model, e.g. Wav2Vec2ForCTC.from_pretrained('NbAiLab/nb-wav2vec2-1b-bokmaal')
-    offset=0
+    offset
         where to start transcribing, in seconds from start of file
-    duration=None
+    duration
         the duration of the audio segment, in seconds from the offset, which should be transcribed.
-    print_output= False
+    limit=30
+        max length in seconds of segments to be transcribed
+    print_output=False
         Option to print the transcriptions to terminal
 
     return: the predicted transcription of the audio segment
     """
 
     try:
-        audio, rate = librosa.load(filepath, sr=16000, offset=offset, duration=duration)
-        input_values = processor(
-            audio, sampling_rate=rate, return_tensors="pt"
-        ).input_values
-        logits = model(input_values).logits
-        transcription = processor.batch_decode(logits.detach().numpy()).text
-        if print_output:
-            print(transcription[0])
-        return transcription[0]
+        if duration > limit:
+            if print_output:
+                print("")
+            return ""
+        else:
+            audio, rate = librosa.load(filepath, sr=16000, offset=offset, duration=duration)
+            input_values = processor(
+                audio, sampling_rate=rate, return_tensors="pt"
+            ).input_values
+            logits = model(input_values).logits
+            transcription = processor.batch_decode(logits.detach().numpy()).text
+            if print_output:
+                print(transcription[0])
+            return transcription[0]
     except Exception as e:
         print(e)
         if print_output:
@@ -160,6 +167,11 @@ def diarize(audiofile, outfile=None):
     name specified in outfile
     """
     pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization")
+    #parameters = pipeline.default_parameters() # might be possible to get shorter segments by adjusting params
+    #parameters["min_duration_off"] = 0.001
+    #parameters["onset"] = 0.9
+    #pipeline.instantiate(parameters)
+
     diarization = pipeline(audiofile)
     result = []
     for turn, _, speaker in diarization.itertracks(yield_label=True):
@@ -293,7 +305,7 @@ if __name__ == "__main__":
         description="CLI for transcribing larger audiofiles with wav2vec2."
     )
     parser.add_argument(
-        "mode", help="Choose the mode: 'diarize', 'transcribe', 'background'"
+        "mode", help="Choose the mode: 'diarize', 'transcribe', 'background', 'convert'"
     )
     parser.add_argument("audiofile", help="Specify the path to an audiofile")
     parser.add_argument("outfile", help="Specify the path to an output file")
@@ -317,7 +329,8 @@ if __name__ == "__main__":
         help=(
             "Specify the file format of a transcription file."
             "Possible options are csv, eaf or srt. Defaults to csv."
-            "The eaf and srt options are only implemented for the 'transcribe' mode."
+            "The eaf and srt options are only implemented for the 'transcribe' and 'convert' modes."
+            "If no format is specified in 'convert' mode, an eaf file is produced"
         ),
     )
     parser.add_argument(
@@ -339,6 +352,7 @@ if __name__ == "__main__":
             "Specify a presegmented input csv instead of running diarization. "
             "The csv must have a column 'audio_path' with the path to the audio files. "
             "If the paths are not absolute or relative to the current directory, use '--audio_dir'."
+            "Use this option also when converting a csv to eaf or srt."
         ),
     )
     parser.add_argument(
@@ -394,3 +408,14 @@ if __name__ == "__main__":
                 f.write(transcription_to_subtext(trans_df))
         else:
             trans_df.to_csv(args.outfile, index=False)
+    elif args.mode == "convert":
+        trans_df = pd.read_csv(args.input)
+        trans_df = trans_df.dropna(subset="wav2vec")
+        print(f"converting {args.input} to {args.outfile}")
+        if args.format == "srt":
+            with Path(args.outfile).open(mode="w") as f:
+                f.write(transcription_to_subtext(trans_df))
+        else:
+            transcription_df_to_eaf(
+                trans_df, args.audiofile, args.outfile
+            )  # TODO: Add background option
