@@ -7,3 +7,4 @@ srt
 speechbrain
 https://github.com/kpu/kenlm/archive/master.zip
 transformers
+pyctcdecode
