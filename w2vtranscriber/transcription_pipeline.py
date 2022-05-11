@@ -2,7 +2,8 @@ import pandas as pd
 import librosa
 from transformers import Wav2Vec2ForCTC, Wav2Vec2ProcessorWithLM
 from pyannote.audio import Pipeline
-from inaSpeechSegmenter import Segmenter
+
+# from inaSpeechSegmenter import Segmenter
 import pympi
 from pathlib import Path
 from datetime import timedelta
@@ -80,7 +81,9 @@ def wav2vec_transcribe(
                 print("")
             return ""
         else:
-            audio, rate = librosa.load(filepath, sr=16000, offset=offset, duration=duration)
+            audio, rate = librosa.load(
+                filepath, sr=16000, offset=offset, duration=duration
+            )
             input_values = processor(
                 audio, sampling_rate=rate, return_tensors="pt"
             ).input_values
@@ -167,10 +170,10 @@ def diarize(audiofile, outfile=None):
     name specified in outfile
     """
     pipeline = Pipeline.from_pretrained("pyannote/speaker-diarization")
-    #parameters = pipeline.default_parameters() # might be possible to get shorter segments by adjusting params
-    #parameters["min_duration_off"] = 0.001
-    #parameters["onset"] = 0.9
-    #pipeline.instantiate(parameters)
+    # parameters = pipeline.default_parameters() # might be possible to get shorter segments by adjusting params
+    # parameters["min_duration_off"] = 0.001
+    # parameters["onset"] = 0.9
+    # pipeline.instantiate(parameters)
 
     diarization = pipeline(audiofile)
     result = []
@@ -185,40 +188,40 @@ def diarize(audiofile, outfile=None):
         df.to_csv(outfile, index=False)
 
 
-# Identify background
-def identify_background(audiofile, complete=False, outfile=None):
-    """Identify noise, music, male and female speakers in an audio file.
-    The identified segments may be quite large, so this script is not useful
-    for pre-asr segmentation, but can be used to extract metadata about the
-    audio file.
+# Identify background #commented out due to issue with library import
+# def identify_background(audiofile, complete=False, outfile=None):
+#     """Identify noise, music, male and female speakers in an audio file.
+#     The identified segments may be quite large, so this script is not useful
+#     for pre-asr segmentation, but can be used to extract metadata about the
+#     audio file.
 
-    Parameter
-    ----------
-    audiofile
-        the audiofile to be analyzed
-    complete=False
-        if False, include info about music and noise only,
-        not speech
-    outfile=None
-        the path to an csv file that the background DataFrame is stored to
+#     Parameter
+#     ----------
+#     audiofile
+#         the audiofile to be analyzed
+#     complete=False
+#         if False, include info about music and noise only,
+#         not speech
+#     outfile=None
+#         the path to an csv file that the background DataFrame is stored to
 
 
-    Return: a DataFrame with columns 'type', 'start', 'end', 'duration',
-    and 'audio_path' if outfile is None, else create a csv file with the
-    name specified in outfile
-    """
-    seg = Segmenter()
-    segmentation = seg(audiofile)
-    segdicts = [{"type": x[0], "start": x[1], "end": x[2]} for x in segmentation]
-    df = pd.DataFrame(segdicts)
-    df.loc[:, "duration"] = df.end - df.start
-    df.loc[:, "audio_path"] = audiofile
-    if not complete:
-        df = df[df.type.isin(["music", "noise"])]
-    if outfile is None:
-        return df
-    else:
-        df.to_csv(outfile, index=False)
+#     Return: a DataFrame with columns 'type', 'start', 'end', 'duration',
+#     and 'audio_path' if outfile is None, else create a csv file with the
+#     name specified in outfile
+#     """
+#     seg = Segmenter()
+#     segmentation = seg(audiofile)
+#     segdicts = [{"type": x[0], "start": x[1], "end": x[2]} for x in segmentation]
+#     df = pd.DataFrame(segdicts)
+#     df.loc[:, "duration"] = df.end - df.start
+#     df.loc[:, "audio_path"] = audiofile
+#     if not complete:
+#         df = df[df.type.isin(["music", "noise"])]
+#     if outfile is None:
+#         return df
+#     else:
+#         df.to_csv(outfile, index=False)
 
 
 # Output to eaf with or without background tier
@@ -315,12 +318,12 @@ if __name__ == "__main__":
         help="print transcribed sentences to terminal",
         action="store_true",
     )
-    parser.add_argument(
-        "-b",
-        "--background",
-        action="store_true",
-        help="Identify segments with music and noise. For now, the background is only added to eaf files",
-    )
+    # parser.add_argument(
+    #     "-b",
+    #     "--background",
+    #     action="store_true",
+    #     help="Identify segments with music and noise. For now, the background is only added to eaf files",
+    # )
     parser.add_argument(
         "-f",
         "--format",
@@ -371,14 +374,14 @@ if __name__ == "__main__":
     if args.mode == "diarize":
         print(f"Diarizing {args.audiofile} to {args.outfile}")
         diarize(args.audiofile, outfile=args.outfile)
-    elif args.mode == "background":
-        print(f"Identifying background in {args.audiofile} to {args.outfile}")
-        identify_background(args.audiofile, outfile=args.outfile)
+    # elif args.mode == "background":
+    #     print(f"Identifying background in {args.audiofile} to {args.outfile}")
+    #     identify_background(args.audiofile, outfile=args.outfile)
     elif args.mode == "transcribe":
         background = None
-        if args.background:
-            print(f"Identifying noise and music in {args.audiofile}")
-            background = identify_background(args.audiofile)
+        # if args.background:
+        #     print(f"Identifying noise and music in {args.audiofile}")
+        #     background = identify_background(args.audiofile)
         diarized_df = None
         if args.input is None:
             print(f"Diarizing {args.audiofile}...")
