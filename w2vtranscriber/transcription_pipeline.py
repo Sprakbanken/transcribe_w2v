@@ -324,12 +324,12 @@ if __name__ == "__main__":
         help="print transcribed sentences to terminal",
         action="store_true",
     )
-    # parser.add_argument(
-    #     "-b",
-    #     "--background",
-    #     action="store_true",
-    #     help="Identify segments with music and noise. For now, the background is only added to eaf files",
-    # )
+    parser.add_argument(
+        "-b",
+        "--background",
+        action="store_true",
+        help="Identify segments with music and noise. For now, the background is only added to eaf files",
+    cd )
     parser.add_argument(
         "-f",
         "--format",
