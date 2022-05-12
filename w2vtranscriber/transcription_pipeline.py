@@ -195,39 +195,39 @@ def diarize(audiofile, outfile=None):
         df.to_csv(outfile, index=False)
 
     # Identify background #commented out due to issue with library import
-    # def identify_background(audiofile, complete=False, outfile=None):
-    """Identify noise, music, male and female speakers in an audio file.
-    The identified segments may be quite large, so this script is not useful
-    for pre-asr segmentation, but can be used to extract metadata about the
-    audio file.
+    def identify_background(audiofile, complete=False, outfile=None):
+        """Identify noise, music, male and female speakers in an audio file.
+        The identified segments may be quite large, so this script is not useful
+        for pre-asr segmentation, but can be used to extract metadata about the
+        audio file.
 
-    Parameter
-    ----------
-    audiofile
-        the audiofile to be analyzed
-    complete=False
-        if False, include info about music and noise only,
-        not speech
-    outfile=None
-        the path to an csv file that the background DataFrame is stored to
+        Parameter
+        ----------
+        audiofile
+            the audiofile to be analyzed
+        complete=False
+            if False, include info about music and noise only,
+            not speech
+        outfile=None
+            the path to an csv file that the background DataFrame is stored to
 
 
-    Return: a DataFrame with columns 'type', 'start', 'end', 'duration',
-    and 'audio_path' if outfile is None, else create a csv file with the
-    name specified in outfile
-    """
-    seg = Segmenter()
-    segmentation = seg(audiofile)
-    segdicts = [{"type": x[0], "start": x[1], "end": x[2]} for x in segmentation]
-    df = pd.DataFrame(segdicts)
-    df.loc[:, "duration"] = df.end - df.start
-    df.loc[:, "audio_path"] = audiofile
-    if not complete:
-        df = df[df.type.isin(["music", "noise"])]
-    if outfile is None:
-        return df
-    else:
-        df.to_csv(outfile, index=False)
+        Return: a DataFrame with columns 'type', 'start', 'end', 'duration',
+        and 'audio_path' if outfile is None, else create a csv file with the
+        name specified in outfile
+        """
+        seg = Segmenter()
+        segmentation = seg(audiofile)
+        segdicts = [{"type": x[0], "start": x[1], "end": x[2]} for x in segmentation]
+        df = pd.DataFrame(segdicts)
+        df.loc[:, "duration"] = df.end - df.start
+        df.loc[:, "audio_path"] = audiofile
+        if not complete:
+            df = df[df.type.isin(["music", "noise"])]
+        if outfile is None:
+            return df
+        else:
+            df.to_csv(outfile, index=False)
 
 
 # Output to eaf with or without background tier
@@ -329,7 +329,7 @@ if __name__ == "__main__":
         "--background",
         action="store_true",
         help="Identify segments with music and noise. For now, the background is only added to eaf files",
-    cd )
+    )
     parser.add_argument(
         "-f",
         "--format",
