@@ -399,7 +399,7 @@ if __name__ == "__main__":
             print_output = True
         device = "cuda" if torch.cuda.is_available() else "cpu"
         processor = Wav2Vec2ProcessorWithLM.from_pretrained(args.model)
-        model = Wav2Vec2ForCTC.from_pretrained(args.model).to_device()
+        model = Wav2Vec2ForCTC.from_pretrained(args.model).to(device)
         print(f"Transcribing to {args.outfile}")
         trans_df = transcribe_df_w2v(
             diarized_df,
