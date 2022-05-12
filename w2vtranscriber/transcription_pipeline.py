@@ -194,7 +194,7 @@ def diarize(audiofile, outfile=None):
     else:
         df.to_csv(outfile, index=False)
 
-    # Identify background #commented out due to issue with library import
+    # Identify background
     def identify_background(audiofile, complete=False, outfile=None):
         """Identify noise, music, male and female speakers in an audio file.
         The identified segments may be quite large, so this script is not useful
@@ -324,12 +324,12 @@ if __name__ == "__main__":
         help="print transcribed sentences to terminal",
         action="store_true",
     )
-    parser.add_argument(
-        "-b",
-        "--background",
-        action="store_true",
-        help="Identify segments with music and noise. For now, the background is only added to eaf files",
-    )
+    #    parser.add_argument(
+    #        "-b",
+    #        "--background",
+    #        action="store_true",
+    #        help="Identify segments with music and noise. For now, the background is only added to eaf files",
+    #    )
     parser.add_argument(
         "-f",
         "--format",
@@ -380,14 +380,14 @@ if __name__ == "__main__":
     if args.mode == "diarize":
         print(f"Diarizing {args.audiofile} to {args.outfile}")
         diarize(args.audiofile, outfile=args.outfile)
-    elif args.mode == "background":
-        print(f"Identifying background in {args.audiofile} to {args.outfile}")
-        identify_background(args.audiofile, outfile=args.outfile)
+    #    elif args.mode == "background":
+    #        print(f"Identifying background in {args.audiofile} to {args.outfile}")
+    #        identify_background(args.audiofile, outfile=args.outfile)
     elif args.mode == "transcribe":
-        background = None
-        if args.background:
-            print(f"Identifying noise and music in {args.audiofile}")
-            background = identify_background(args.audiofile)
+        #        background = None
+        #        if args.background:
+        #            print(f"Identifying noise and music in {args.audiofile}")
+        #            background = identify_background(args.audiofile)
         diarized_df = None
         if args.input is None:
             print(f"Diarizing {args.audiofile}...")
