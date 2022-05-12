@@ -3,12 +3,13 @@ import librosa
 from transformers import Wav2Vec2ForCTC, Wav2Vec2ProcessorWithLM
 from pyannote.audio import Pipeline
 
-# from inaSpeechSegmenter import Segmenter
+from inaSpeechSegmenter import Segmenter
 import pympi
 from pathlib import Path
 from datetime import timedelta
 from srt import Subtitle, compose
 import argparse
+import torch
 
 # Utils
 
@@ -51,7 +52,7 @@ def transcribe_series(filename_series, transcriptionfunc, path_to_audio):
 
 # Transcribe with wav2wec
 def wav2vec_transcribe(
-    filepath, processor, model, offset, duration, limit=30, print_output=False
+    filepath, processor, model, offset, duration, device, limit=30, print_output=False
 ):
     """Transcribe an audiofile or segment of an audio file with wav2vec.
 
@@ -67,9 +68,11 @@ def wav2vec_transcribe(
         where to start transcribing, in seconds from start of file
     duration
         the duration of the audio segment, in seconds from the offset, which should be transcribed.
-    limit=30
-        max length in seconds of segments to be transcribed
-    print_output=False
+    device
+        the device the process should be run on (cpu of gpu)
+    limit=30:
+        The max amount of seconds accepted for a segment
+    print_output= False
         Option to print the transcriptions to terminal
 
     return: the predicted transcription of the audio segment
@@ -86,8 +89,8 @@ def wav2vec_transcribe(
             )
             input_values = processor(
                 audio, sampling_rate=rate, return_tensors="pt"
-            ).input_values
-            logits = model(input_values).logits
+            ).input_values.to(device)
+            logits = model(input_values).logits.cpu()
             transcription = processor.batch_decode(logits.detach().numpy()).text
             if print_output:
                 print(transcription[0])
@@ -100,7 +103,7 @@ def wav2vec_transcribe(
 
 
 def transcribe_df_w2v(
-    df, processor, model, audio_dir=None, print_output=False, outfile=None
+    df, processor, model, device, audio_dir=None, print_output=False, outfile=None
 ):
     """Transcribe audio with wav2vec given a DataFrame with segments. A column 'wav2vec' will
     be created with the predicted transcriptions.
@@ -113,6 +116,8 @@ def transcribe_df_w2v(
         a wav2vec processor, e.g. Wav2Vec2ProcessorWithLM.from_pretrained('NbAiLab/nb-wav2vec2-1b-bokmaal')
     model
         a wav2vec model, e.g. Wav2Vec2ForCTC.from_pretrained('NbAiLab/nb-wav2vec2-1b-bokmaal')
+    device
+        the device the process should be run on (cpu or gpu)
     audio_dir=None
         a directory where the files in the 'audio_path' column in the df are located
         if this column does not contain complete paths
@@ -129,8 +134,9 @@ def transcribe_df_w2v(
                 row.audio_path,
                 processor,
                 model,
-                offset=row.start,
-                duration=row.duration,
+                row.start,
+                row.duration,
+                device,
                 print_output=print_output,
             ),
             axis=1,
@@ -141,8 +147,9 @@ def transcribe_df_w2v(
                 audio_dir + row.audio_path,
                 processor,
                 model,
-                offset=row.start,
-                duration=row.duration,
+                row.start,
+                row.duration,
+                device,
                 print_output=print_output,
             ),
             axis=1,
@@ -187,41 +194,40 @@ def diarize(audiofile, outfile=None):
     else:
         df.to_csv(outfile, index=False)
 
+    # Identify background #commented out due to issue with library import
+    # def identify_background(audiofile, complete=False, outfile=None):
+    """Identify noise, music, male and female speakers in an audio file.
+    The identified segments may be quite large, so this script is not useful
+    for pre-asr segmentation, but can be used to extract metadata about the
+    audio file.
 
-# Identify background #commented out due to issue with library import
-# def identify_background(audiofile, complete=False, outfile=None):
-#     """Identify noise, music, male and female speakers in an audio file.
-#     The identified segments may be quite large, so this script is not useful
-#     for pre-asr segmentation, but can be used to extract metadata about the
-#     audio file.
-
-#     Parameter
-#     ----------
-#     audiofile
-#         the audiofile to be analyzed
-#     complete=False
-#         if False, include info about music and noise only,
-#         not speech
-#     outfile=None
-#         the path to an csv file that the background DataFrame is stored to
+    Parameter
+    ----------
+    audiofile
+        the audiofile to be analyzed
+    complete=False
+        if False, include info about music and noise only,
+        not speech
+    outfile=None
+        the path to an csv file that the background DataFrame is stored to
 
 
-#     Return: a DataFrame with columns 'type', 'start', 'end', 'duration',
-#     and 'audio_path' if outfile is None, else create a csv file with the
-#     name specified in outfile
-#     """
-#     seg = Segmenter()
-#     segmentation = seg(audiofile)
-#     segdicts = [{"type": x[0], "start": x[1], "end": x[2]} for x in segmentation]
-#     df = pd.DataFrame(segdicts)
-#     df.loc[:, "duration"] = df.end - df.start
-#     df.loc[:, "audio_path"] = audiofile
-#     if not complete:
-#         df = df[df.type.isin(["music", "noise"])]
-#     if outfile is None:
-#         return df
-#     else:
-#         df.to_csv(outfile, index=False)
+    Return: a DataFrame with columns 'type', 'start', 'end', 'duration',
+    and 'audio_path' if outfile is None, else create a csv file with the
+    name specified in outfile
+    """
+    seg = Segmenter()
+    segmentation = seg(audiofile)
+    segdicts = [{"type": x[0], "start": x[1], "end": x[2]} for x in segmentation]
+    df = pd.DataFrame(segdicts)
+    df.loc[:, "duration"] = df.end - df.start
+    df.loc[:, "audio_path"] = audiofile
+    if not complete:
+        df = df[df.type.isin(["music", "noise"])]
+    if outfile is None:
+        return df
+    else:
+        df.to_csv(outfile, index=False)
 
 
 # Output to eaf with or without background tier
@@ -374,14 +380,14 @@ if __name__ == "__main__":
     if args.mode == "diarize":
         print(f"Diarizing {args.audiofile} to {args.outfile}")
         diarize(args.audiofile, outfile=args.outfile)
-    # elif args.mode == "background":
-    #     print(f"Identifying background in {args.audiofile} to {args.outfile}")
-    #     identify_background(args.audiofile, outfile=args.outfile)
+    elif args.mode == "background":
+        print(f"Identifying background in {args.audiofile} to {args.outfile}")
+        identify_background(args.audiofile, outfile=args.outfile)
     elif args.mode == "transcribe":
         background = None
-        # if args.background:
-        #     print(f"Identifying noise and music in {args.audiofile}")
-        #     background = identify_background(args.audiofile)
+        if args.background:
+            print(f"Identifying noise and music in {args.audiofile}")
+            background = identify_background(args.audiofile)
         diarized_df = None
         if args.input is None:
             print(f"Diarizing {args.audiofile}...")
@@ -391,9 +397,9 @@ if __name__ == "__main__":
         print_output = False
         if args.verbose:
             print_output = True
-
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         processor = Wav2Vec2ProcessorWithLM.from_pretrained(args.model)
-        model = Wav2Vec2ForCTC.from_pretrained(args.model)
+        model = Wav2Vec2ForCTC.from_pretrained(args.model).to_device()
         print(f"Transcribing to {args.outfile}")
         trans_df = transcribe_df_w2v(
             diarized_df,
