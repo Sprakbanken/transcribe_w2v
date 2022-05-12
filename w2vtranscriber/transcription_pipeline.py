@@ -405,6 +405,7 @@ if __name__ == "__main__":
             diarized_df,
             processor,
             model,
+            device,
             audio_dir=args.audio_dir,
             print_output=print_output,
         )
