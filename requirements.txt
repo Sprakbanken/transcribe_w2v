@@ -1,6 +1,6 @@
 pandas
 librosa
-https://github.com/pyannote/pyannote-audio/archive/develop.zip
+pyannote.audio==2.0.1
 inaSpeechSegmenter
 pympi-ling
 srt
