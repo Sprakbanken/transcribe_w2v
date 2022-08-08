@@ -1,3 +1,4 @@
+from cProfile import run
 import pandas as pd
 import librosa
 from transformers import Wav2Vec2ForCTC, Wav2Vec2ProcessorWithLM
@@ -194,6 +195,55 @@ def diarize(audiofile, outfile=None):
     else:
         df.to_csv(outfile, index=False)
 
+
+def run_vad(
+    audiofile,
+    threshold=0.5,
+    min_speech_duration_ms=250,
+    min_silence_duration_ms=100,
+    window_size_samples=1536,
+    speech_pad_ms=30,
+    return_seconds=True,
+    outfile=None,
+):
+    """Run voice activity detection on an audiofile.
+
+    Parameter
+    ----------
+    audiofile
+        the adiofile to run VAD on
+    outfile=None
+        the path to an csv file that the diarized DataFrame is stored to
+
+    Return: a DataFrame with columns 'speaker', 'start', 'end', 'duration',
+    and 'audio_path' if outfile is None, else create a csv file with the
+    name specified in outfile
+    """
+    model, utils = torch.hub.load(
+        repo_or_dir="snakers4/silero-vad", model="silero_vad", force_reload=False
+    )
+    model
+    get_ts, read_audio = utils[0], utils[2]
+    audio_tns = read_audio(audiofile)
+    vad = get_ts(
+        audio_tns,
+        model,
+        threshold=threshold,
+        min_speech_duration_ms=min_speech_duration_ms,
+        min_silence_duration_ms=min_silence_duration_ms,
+        window_size_samples=window_size_samples,
+        speech_pad_ms=speech_pad_ms,
+        return_seconds=return_seconds,
+    )
+
+    df = pd.DataFrame(vad)
+    df.loc[:, "duration"] = df.end - df.start
+    df.loc[:, "audio_path"] = audiofile
+    if outfile is None:
+        return df
+    else:
+        df.to_csv(outfile, index=False)
+
     # Identify background
     def identify_background(audiofile, complete=False, outfile=None):
         """Identify noise, music, male and female speakers in an audio file.
@@ -314,7 +364,8 @@ if __name__ == "__main__":
         description="CLI for transcribing larger audiofiles with wav2vec2."
     )
     parser.add_argument(
-        "mode", help="Choose the mode: 'diarize', 'transcribe', 'background', 'convert'"
+        "mode",
+        help="Choose the mode: 'vad', 'diarize', 'transcribe', 'background', 'convert'",
     )
     parser.add_argument("audiofile", help="Specify the path to an audiofile")
     parser.add_argument("outfile", help="Specify the path to an output file")
@@ -330,6 +381,16 @@ if __name__ == "__main__":
     #        action="store_true",
     #        help="Identify segments with music and noise. For now, the background is only added to eaf files",
     #    )
+    parser.add_argument(
+        "-d",
+        "--diarize",
+        help=(
+            "Run speaker diarization in addition to voice activity detection in transcribe mode. "
+            "Be aware that this option may lead to segments > 30 seconds, which will be filtered out "
+            "by the ASR"
+        ),
+        action="store_true",
+    )
     parser.add_argument(
         "-f",
         "--format",
@@ -380,6 +441,9 @@ if __name__ == "__main__":
     if args.mode == "diarize":
         print(f"Diarizing {args.audiofile} to {args.outfile}")
         diarize(args.audiofile, outfile=args.outfile)
+    elif args.mode == "vad":
+        print(f"Running voice activity detection on {args.audiofile} to {args.outfile}")
+        run_vad(args.audiofile, outfile=args.outfile)
     #    elif args.mode == "background":
     #        print(f"Identifying background in {args.audiofile} to {args.outfile}")
     #        identify_background(args.audiofile, outfile=args.outfile)
@@ -388,12 +452,16 @@ if __name__ == "__main__":
         #        if args.background:
         #            print(f"Identifying noise and music in {args.audiofile}")
         #            background = identify_background(args.audiofile)
-        diarized_df = None
+        vad_df = None
         if args.input is None:
-            print(f"Diarizing {args.audiofile}...")
-            diarized_df = diarize(args.audiofile)
+            if args.diarize:
+                print(f"Diarizing {args.audiofile}...")
+                vad_df = diarize(args.audiofile)
+            else:
+                print(f"Running VAD on {args.audiofile}...")
+                vad_df = run_vad(args.audiofile)
         else:
-            diarized_df = pd.read_csv(args.input)
+            vad_df = pd.read_csv(args.input)
         print_output = False
         if args.verbose:
             print_output = True
@@ -402,7 +470,7 @@ if __name__ == "__main__":
         model = Wav2Vec2ForCTC.from_pretrained(args.model).to(device)
         print(f"Transcribing to {args.outfile}")
         trans_df = transcribe_df_w2v(
-            diarized_df,
+            vad_df,
             processor,
             model,
             device,

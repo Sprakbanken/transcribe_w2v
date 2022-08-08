@@ -8,4 +8,4 @@ speechbrain
 https://github.com/kpu/kenlm/archive/master.zip
 transformers
 pyctcdecode
-torch
+--extra-index-url https://download.pytorch.org/whl/cu113 torch
