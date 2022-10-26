@@ -14,10 +14,3 @@ To transcribe an audiofile in Bokmål: `python -m w2vtranscriber.transcription_p
 To get more detailed documentation, run: `python -m w2vtranscriber.transcription_pipeline --help`
 
 This script is in very early stages of development and may not always work as intended.
-
-
-## Docker
-There is also a Dockerfile in the repo for building a Docker image for the transcription pipeline. Note that this Dockerfile is not ready to be used and will not work!
-
-To build the image: `sudo docker build --build-arg username=$USER -t test01  .`
-To run: `sudo docker run -it test01`
